@@ -1,0 +1,37 @@
+﻿@page "/characters"
+@using TTRPGManager.Models
+@inject TTRPGManager.Data.CampaignDbContext Db
+
+@inject NavigationManager NavManager
+
+
+<!-- Standard header with title, back, and home buttons -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <a href="/" class="btn btn-dark btn-icon me-2" aria-label="Back to Main Menu">
+        <img src="/images/BackIcon.png" alt="Home Icon" class="header-icon" />
+    </a>
+    <h1>Character Hub</h1>
+    <a href="/" class="btn btn-dark btn-icon me-2" aria-label="Back to Main Menu">
+        <img src="/images/HomeIcon.png" alt="Home Icon" class="header-icon" />
+    </a>
+</div>
+
+<div class="dashboard-grid">
+    <!-- Button to navigate to the NPCs Page -->
+    <a href="/npcs" class="dashboard-btn" style="background-image: linear-gradient(to right, rgba(43, 43, 43, 0) 35%, rgba(43, 43, 43, 1) 90%), url('/images/NpcButtonImage.png'); background-position: 0% 0%; background-size: 45%; background-repeat: no-repeat; padding-right: 25%;">
+        NPCs
+    </a>
+    <!-- Button to navigate to the Enemies Page -->
+    <a href="/enemies" class="dashboard-btn" style="background-image: linear-gradient(to right, rgba(43, 43, 43, 0) 30%, rgba(43, 43, 43, 1) 95%), url('/images/EnemyButtonImage.png'); background-position: -20% 75%; background-size: 55%; background-repeat: no-repeat;">
+        Enemies
+    </a>
+
+</div>
+
+@code {
+    // Handles the routing for the Add button
+    private void GoToCreatePage()
+    {
+        NavManager.NavigateTo("/npc/create");
+    }
+}

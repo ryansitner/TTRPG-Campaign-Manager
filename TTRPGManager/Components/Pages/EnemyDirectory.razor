@@ -1,0 +1,67 @@
+﻿@page "/enemies"
+@using TTRPGManager.Models
+@inject TTRPGManager.Data.CampaignDbContext Db
+
+@inject NavigationManager NavManager
+
+<div class="d-flex flex-column" style="height: calc(100vh - 40px);">
+    
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <a href="/characters" class="btn btn-dark btn-icon me-2" aria-label="Back to Character Hub">
+            <img src="/images/BackIcon.png" alt="Back Icon" class="header-icon" />
+        </a>
+        <h1>Enemy Directory</h1>
+        <a href="/" class="btn btn-dark btn-icon me-2" aria-label="Back to Main Menu">
+            <img src="/images/HomeIcon.png" alt="Home Icon" class="header-icon" />
+        </a>
+    </div>
+
+    <div class="flex-grow-1 pe-2 border-top" style="overflow-y: auto; overflow-x: hidden;">
+        <div class="character-grid">
+            @foreach (var enemy in EnemyList)
+            {
+                <div class="character-card">
+                    <img src="@enemy.Portrait" alt="@enemy.Name" class="character-card-img" />
+
+                    <div class="character-card-info">
+                        <h4>@enemy.Name</h4>
+                        <p>Challenge Rating: @(enemy.ChallengeRating switch 
+                            { 
+                                0.125 => "1/8", 
+                                0.25 => "1/4", 
+                                0.5 => "1/2", 
+                                _ => enemy.ChallengeRating.ToString() 
+                            })
+                        </p>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    <div class="mt-auto pt-3 pb-0 border-top d-flex justify-content-end">
+        <button class="btn character-add-btn" @onclick="GoToCreatePage">Add New Enemy</button>
+    </div>
+
+</div>
+
+@code {
+    private List<Enemy> EnemyList = new List<Enemy>();
+
+    // Lifecycle method runs automatically when the page opens
+    protected override void OnInitialized()
+    {
+        // Fetch the data
+        EnemyList = Db.BaseCreatures
+        .AsEnumerable()
+        .OfType<Enemy>()
+        .OrderBy(n => n.Name)
+        .ToList();
+    }
+
+    // Handles the routing for the Add button
+    private void GoToCreatePage()
+    {
+        NavManager.NavigateTo("/enemy/create");
+    }
+}

@@ -1,0 +1,100 @@
+﻿@page "/towns"
+@using TTRPGManager.Models
+@using Microsoft.EntityFrameworkCore
+@inject TTRPGManager.Data.CampaignDbContext Db
+
+@inject NavigationManager NavManager
+
+<div class="d-flex flex-column" style="height: calc(100vh - 40px);">
+	<div class="d-flex justify-content-between align-items-center mb-2">
+		<a href="/" class="btn btn-dark btn-icon me-2" aria-label="Back to Main Menu">
+			<img src="/images/BackIcon.png" alt="Back Icon" class="header-icon" />
+		</a>
+
+		<h1 class="text-capitalize">Town Directory</h1>
+
+		<a href="/" class="btn btn-dark btn-icon me-2" aria-label="Back to Main Menu">
+			<img src="/images/HomeIcon.png" alt="Home Icon" class="header-icon" />
+		</a>
+	</div>
+
+	<div class="flex-grow-1" style="overflow-y: auto; overflow-x: hidden;">
+		<div class="row">
+			@if (!TownList.Any())
+			{
+				<div class="text-center mt-5">
+					<h4 class="text-muted">No towns discovered.</h4>
+					<p class="text-muted">Click the Add button to create a settlement.</p>
+				</div>
+			}
+			else {
+				@foreach (var town in TownList)
+				{
+					<div class="col-12 col-xl-4 mb-4">
+						<div class="card bg-dark text-white h-100">
+					
+							<div class="row g-0">
+								<div class="col-4 d-flex">
+									<img src="@town.Map?.Image" alt="@town.Name Map" class="img-fluid rounded-start w-100 object-fit-cover" />
+								</div>
+
+								<div class="col-8">
+									<div class="card-body">
+										<h3 class="card-title"><strong>@town.Name</strong></h3>
+										<p class="card-text mb-1">@TruncateDescription(town.Description, 120)</p>
+									</div>
+								</div>
+							</div>
+
+						</div>
+					</div>
+				}
+			}
+		</div>
+	</div>
+
+	<div class="mt-auto pt-3 pb-0 border-top d-flex justify-content-end">
+		<button class="btn character-add-btn" @onclick="GoToCreatePage">Add New Town</button>
+	</div>
+
+</div>
+
+
+
+@code {
+
+	private List<Town> TownList = new List<Town>();
+
+	// Lifecycle method runs automatically when the page opens
+	protected override async Task OnInitializedAsync()
+	{
+		TownList = await Db.Towns
+			.Include(t => t.Map)
+			.AsNoTracking()
+			.OrderBy(t => t.Name)
+			.ToListAsync();
+	}
+
+	private string TruncateDescription(string description, int maxLength)
+	{
+		if (!string.IsNullOrEmpty(description)) 
+		{
+			if (description.Length <= maxLength)
+			{
+				return description;
+			}
+			else
+			{
+				return description.Substring(0, maxLength) + "...";
+			}
+		}
+		return string.Empty;
+	}
+
+	// Handles the routing for the Add button
+	private void GoToCreatePage()
+	{
+		NavManager.NavigateTo("/towns/create");
+	}
+
+}

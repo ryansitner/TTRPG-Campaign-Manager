@@ -1,0 +1,292 @@
+﻿@page "/items/view/{itemID:int}"
+@using TTRPGManager.Models
+@using Microsoft.EntityFrameworkCore
+@inject TTRPGManager.Data.CampaignDbContext Db
+@inject NavigationManager NavManager
+
+<h3></h3>
+
+@if (currentItem == null)
+{
+	<button class="btn btn-primary" type="button" disabled>
+		<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+		Loading Item Data...
+	</button>
+}
+else
+{
+	<div class="d-flex flex-column text-white" style="height: calc(100vh - 40px);">
+
+		<div class="row border-bottom border-secondary pb-3">
+			<div class="col">
+				<div class="d-flex justify-content-start">
+					<a href="/items" class="btn btn-dark btn-icon me-2" aria-label="Back to Item Directory">
+						<img src="/images/BackIcon.png" alt="Back Icon" class="header-icon" />
+					</a>
+					<h2 class="mt-3">@currentItem.Name</h2>
+				</div>
+			</div>
+
+			<div class="col">
+				<div class="d-flex justify-content-end">
+					<button class="btn btn-primary type=button mt-3" @onclick="GoToEditPage">Edit Item Details</button>
+				</div>
+			</div>
+		</div>
+
+		<div class="row">
+			<div class="col-12 d-flex justify-content-center">
+				<small class="text-muted">@FormatEnumName(currentItem.Type.ToString())</small>
+			</div>
+		</div>
+
+		<div class="row mt-3">
+			<div class="col-4">
+				<img src="@currentItem.Image" style="border: 8px solid @GetRarityColor(currentItem.Rarity); width: 250px; height: 300px; object-fit: contain;" />
+			</div>
+
+			<div class="col-8">
+				<label class="fw-bold">Description:</label>
+				<div class="pe-2" style="max-height: 260px; overflow-y: auto;">
+					<p>@currentItem.Description</p>
+				</div>
+			</div>
+
+		</div>
+
+		<div class="row mt-3 text-center">
+			
+			<div class="col-3">
+				<label><strong>Cost:</strong></label>
+				@if (currentItem.CostInCopper == 0)
+				{
+					<p class="text-muted">No Price Listed</p>
+				} else {
+					<p>@GetCostBreakdown(currentItem.CostInCopper)</p>
+				}
+			</div>
+
+			<div class="col-3">
+				<label><strong>Weight:</strong></label>
+				@if (currentItem.Weight > 0)
+				{
+					<p>@currentItem.Weight</p>
+				} else
+				{
+					<p class="text-muted">N/A</p>
+				}
+			</div>
+
+			<div class="col-3">
+				@if (currentItem.IsMagical)
+				{
+					<div class="d-flex justify-content-center align-items-center">
+						<img src="/images/SafeForPlayersCheck.png"
+							 style="width: 30px; height: 30px;"
+							 title="Magical Item" />
+						<p class="mb-0 ms-2">Magical Item</p>
+					</div>
+				}
+			</div>
+
+			<div class="col-3">
+				@if (currentItem.RequiresAttunement)
+				{
+					<div class="d-flex justify-content-center align-items-center">
+						<img src="/images/SafeForPlayersCheck.png"
+							style="width: 30px; height: 30px;"
+							title="Requires Attunement" />
+						<p class="mb-0 ms-2">Requires Attunment</p>
+					</div>
+				}
+			</div>
+
+		</div>
+
+		@if (currentItem.Type == ItemType.Weapon)
+		{
+			<div class="mb-3 border border-secondary rounded p-3">
+				<h4 class="pb-1">Weapon Stats:</h4>
+				
+				<div class="row">
+					<div class="col-3 d-flex justify-content-center align-items-center">
+						<p class="mb-0"><strong>Damage Type:</strong></p>
+						@if (currentItem.DamageType == null)
+						{
+							<p class="text-muted ps-2 mb-0">N/A</p>
+						} else {
+							<p class="ps-2 mb-0">@FormatEnumName(currentItem.DamageType.ToString())</p>
+						}
+					</div>
+
+					<div class="col-3 d-flex justify-content-center align-items-center">
+						<p class="mb-0"><strong>Damage Dice:</strong></p>
+						@if (currentItem.DamageDice == null)
+						{
+							<p class="text-muted ps-2 mb-0">N/A</p>
+						}
+						else
+						{
+							<p class="ps-2 mb-0">@currentItem.DamageDice</p>
+						}
+					</div>
+
+					<div class="col-3 d-flex justify-content-center align-items-center">
+						<p class="mb-0"><strong>Normal Range:</strong></p>
+						@if (currentItem.NormalRange == null)
+						{
+							<p class="text-muted ps-2 mb-0">N/A</p>
+						}
+						else
+						{
+							<p class="ps-2 mb-0">@currentItem.NormalRange</p>
+						}
+					</div>
+
+					<div class="col-3 d-flex justify-content-center align-items-center">
+						<p class="mb-0"><strong>Max Range:</strong></p>
+						@if (currentItem.MaxRange == null)
+						{
+							<p class="text-muted ps-2 mb-0">N/A</p>
+						}
+						else
+						{
+							<p class="ps-2 mb-0">@currentItem.MaxRange</p>
+						}
+					</div>
+				</div>
+
+				<div class="row">
+					<div class="col-3">
+						@if (currentItem.IsFinesseWeapon)
+						{
+							<div class="d-flex justify-content-start align-items-center pt-2">
+								<img src="/images/SafeForPlayersCheck.png"
+									 style="width: 30px; height: 30px;"
+									 title="Is Finesse Weapon" />
+								<p class="mb-0 ms-2">Finesse Weapon</p>
+							</div>
+						}
+					</div>
+				</div>
+
+			</div>
+		}
+
+		@if (currentItem.Type == ItemType.Armor || currentItem.Type == ItemType.Shield)
+		{
+			<div class="mb-3 border border-secondary rounded p-3">
+				<h4 class="pb-1">Armor Stats:</h4>
+
+				<div class="row">
+					<div class="col-6 d-flex justify-content-center align-items-center">
+						<p class="mb-0"><strong>Armor Type:</strong></p>
+						@if (currentItem.Type == ItemType.Shield)
+						{
+							<p class="ps-2 mb-0">Shield</p>
+						} else
+						{
+							@if (currentItem.ArmorType == null)
+							{
+								<p class="text-muted ps-2 mb-0">N/A</p>
+							}
+							else
+							{
+								<p class="ps-2 mb-0">@FormatEnumName(currentItem.ArmorType.ToString())</p>
+							}
+						}
+
+					</div>
+
+					<div class="col-6 d-flex justify-content-center align-items-center">
+						<p class="mb-0"><strong>AC Bonus:</strong></p>
+						@if (currentItem.ArmorClassValue == null)
+						{
+							<p class="text-muted ps-2 mb-0">N/A</p>
+						}
+						else
+						{
+							<p class="ps-2 mb-0">@currentItem.ArmorClassValue</p>
+						}
+					</div>
+				</div>
+			</div>
+		}
+
+	</div>
+
+
+}
+
+@code {
+
+	[Parameter]
+	public int itemID { get; set; }
+
+	private Item? currentItem;
+
+	protected override async Task OnInitializedAsync()
+	{
+		currentItem = await Db.Items.FirstOrDefaultAsync(i => i.Id == itemID);
+	}
+
+	private string FormatEnumName(string myString)
+	{
+		return System.Text.RegularExpressions.Regex.Replace(myString, "([A-Z])", " $1").Trim();
+	}
+
+	private string GetRarityColor(ItemRarity rarity)
+	{
+		switch (rarity)
+		{
+			case ItemRarity.Common:
+				return "#79828f";
+			case ItemRarity.Uncommon:
+				return "#1f7a3f";
+			case ItemRarity.Rare:
+				return "#286dad";
+			case ItemRarity.Epic:
+				return "#681499";
+			case ItemRarity.Legendary:
+				return "#ad830e";
+			case ItemRarity.Artifact:
+				return "#8f0404";
+			default:
+				return "transparent";
+		}
+	}
+
+	private string GetCostBreakdown(int cost) // Converting total copper cost into pp, gp, sp, and cp with proper formatting and spacing
+	{
+		int costCalculation;
+		int platinumAmount;
+		int goldAmount;
+		int silverAmount;
+		int copperAmount;
+
+		string totalCost = string.Empty;
+
+		platinumAmount = cost / 1000;
+		if (platinumAmount > 0) { totalCost += $"{platinumAmount} pp "; }
+		costCalculation = cost % 1000;
+
+		goldAmount = costCalculation / 100;
+		if (goldAmount > 0) { totalCost += $"{goldAmount} gp "; }
+		costCalculation = costCalculation % 100;
+
+		silverAmount = costCalculation / 10;
+		if (silverAmount > 0) { totalCost += $"{silverAmount} sp "; }
+
+		copperAmount = costCalculation % 10;
+		if (copperAmount > 0) { totalCost += $"{copperAmount} cp"; }
+
+		return totalCost.Trim();
+
+	}
+
+	private void GoToEditPage()
+	{
+		NavManager.NavigateTo($"/items/edit/{currentItem.Id}");
+	}
+}
+

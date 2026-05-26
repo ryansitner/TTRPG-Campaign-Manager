@@ -1,0 +1,200 @@
+﻿<!-- "/maps/edit/{mapID:int}" --!>
+@page "/old"
+@using TTRPGManager.Models
+@using Microsoft.EntityFrameworkCore
+
+@inject TTRPGManager.Data.CampaignDbContext Db
+@inject NavigationManager NavManager
+
+<h3>Edit Map: @currentMap?.Name</h3>
+
+<EditForm Model="currentMap" class="d-flex flex-column" style="height: calc(100vh - 60px);">
+	<DataAnnotationsValidator />
+	<ValidationSummary class="text-danger" />
+
+    <div class="card p-4 bg-dark text-white flex-grow-1" style="overflow-y: auto; overflow-x: hidden;">
+
+        <div class="row mb-3">
+            <div class="col mb-3">
+                <label>Map Name: <span class="text-danger">*</span></label>
+                <InputText @bind-Value=currentMap.Name class="form-control" />
+            </div>
+
+            <div class="col mb-3">
+                <label>Map Scale:</label>
+                <InputText @bind-Value=currentMap.GridScale class="form-control" placeholder="Space per grid unit (e.g., 5ft)" />
+            </div>
+
+        </div>
+
+        <div class="mb-3">
+            <label>Safe to show players?</label>
+            <InputCheckbox @bind-Value=currentMap.IsPlayerSafe class="form-check-input" />
+        </div>
+
+        <div class="mb-3">
+            <label>Map Description:</label>
+            <InputTextArea @bind-Value=currentMap.Description class="form-control" />
+        </div>
+
+
+        <div class="mb-3 border border-secondary rounded p-3">
+            <label class="fw-bold mb-2">Upload Map Image: <span class="text-danger">*</span></label>
+
+            @* Scenario 1: No image uploaded yet. Show the file input. *@
+            @if (string.IsNullOrWhiteSpace(currentMap.Image))
+            {
+                <button type="button" class="btn btn-outline-info w-100 mb-1" @onclick="PickImageNative">Browse for Map Image...</button>
+                <small class="text-muted mt-1 d-block">Recommended format: 16:9 widescreen.</small>
+            }
+            @* Scenario 2: Image exists. Show success banner and preview. *@
+            else
+            {
+                <div class="d-flex flex-column gap-3">
+                    <div class="alert alert-success p-2 mb-0 d-flex align-items-center justify-content-between" role="alert">
+                        <div>
+                            <span class="oi oi-check me-2" aria-hidden="true"></span>
+                            <strong>Map Uploaded Successfully!</strong>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-danger" @onclick="ClearPhoto">Remove / Change</button>
+                    </div>
+
+                    <img src="@currentMap.Image" alt="Map Preview" class="img-fluid rounded border border-dark" style="max-height: 250px; object-fit: contain;" />
+                </div>
+            }
+        </div>
+
+    </div>
+
+    <div class="mt-auto pt-3 pb-3 border-top d-flex justify-content-between align-items-center">
+        <div class="d-flex gap-5">
+
+            <button type="button" class="btn btn-danger" @onclick="ShowDeleteConfirmation">
+                <img src="/images/TrashIcon.png" style="width: 30px; height: 30px;"/> Delete Map</button>
+
+            <button type="button" class="btn btn-danger" @onclick="CancelEdit">Cancel</button>
+        </div>
+
+        <button type="button" class="btn btn-success" @onclick="UpdateMap">Update Map</button>
+    </div>
+
+
+</EditForm>
+
+@if (isConfirmingDelete)
+{
+    <div class="position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center"
+         style="background-color: rgba(0,0,0,0.8); z-index: 2000;">
+
+        <div class="card p-4 text-center border-danger" style="max-width: 400px; background-color: #1a1a1a;">
+            <h4 class="text-white mb-3">Permanently Delete?</h4>
+            <p class="text-muted">Are you sure you want to delete <strong>@currentMap?.Name</strong>? This action cannot be undone.</p>
+
+            <div class="d-flex gap-3 justify-content-center mt-3">
+                <button class="btn btn-secondary" @onclick="ShowDeleteConfirmation">Cancel</button>
+                <button class="btn btn-danger" @onclick="ConfirmDelete">Yes, Delete Map</button>
+            </div>
+        </div>
+    </div>
+}
+
+
+@code {
+
+    [Parameter]
+    public int mapID { get; set; }
+
+    private Map? currentMap;
+
+    private bool isConfirmingDelete = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Confirm that the mapID parameter is valid and fetch the map data
+        currentMap = await Db.Maps.FirstOrDefaultAsync(m => m.Id == mapID);
+        if (currentMap == null)
+        {
+            // Handle the case where the mapID is invalid (e.g., navigate back or show an error message)
+            NavManager.NavigateTo("/maps");
+        }
+    }
+
+    private async Task PickImageNative()
+    {
+        try
+        {
+            // Trigger the Native Windows/Mac File Picker
+            var result = await Microsoft.Maui.Storage.FilePicker.Default.PickAsync(new PickOptions
+            {
+                PickerTitle = "Select a Map Image",
+                FileTypes = FilePickerFileType.Images
+            });
+
+            // If they actually picked a file (and didn't hit cancel)
+            if (result != null)
+            {
+                // Read the file directly from the operating system
+                using var stream = await result.OpenReadAsync();
+                using var memoryStream = new MemoryStream();
+                await stream.CopyToAsync(memoryStream);
+
+                // Convert the raw bytes into our Base64 string for the database
+                var buffer = memoryStream.ToArray();
+                var base64 = Convert.ToBase64String(buffer);
+
+                // Save it to the model (using the native ContentType like image/png)
+                currentMap.Image = $"data:{result.ContentType};base64,{base64}";
+            }
+        }
+        catch (Exception ex)
+        {
+            // Failsafes silently if the user closes the window without picking anything
+            Console.WriteLine($"Image picking failed: {ex.Message}");
+        }
+    }
+
+    private void ClearPhoto()
+    {
+        // Resets the string to empty, triggering Scenario 1 to show the upload button again
+        currentMap.Image = string.Empty;
+    }
+
+    // Fires only when Submit button is clicked.
+    private async Task UpdateMap()
+    {
+        if (!string.IsNullOrEmpty(currentMap.Name) && !string.IsNullOrEmpty(currentMap.Image))
+        {
+            await Db.SaveChangesAsync();
+
+            // Take the user back to the details page to see their changes
+            NavManager.NavigateTo($"/maps/view/{mapID}");
+        }
+    }
+
+    private void CancelEdit()
+    {
+        NavManager.NavigateTo($"/maps/view/{currentMap.Id}");
+    }
+
+    private void ShowDeleteConfirmation()
+    {
+        isConfirmingDelete = !isConfirmingDelete;
+    }
+
+    private async Task ConfirmDelete()
+    {
+        if (currentMap != null)
+        {
+			// Capture currentMap type before the object is deleted so we know where to redirect after deletion
+            var redirectType = currentMap.Type;
+
+            // Perform the destruction
+            Db.Maps.Remove(currentMap);
+            await Db.SaveChangesAsync();
+
+            // Navigate back using the captured value
+            NavManager.NavigateTo($"/maps/{redirectType}");
+        }
+    }
+
+}

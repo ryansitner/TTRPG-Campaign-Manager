@@ -1,0 +1,111 @@
+﻿@page "/maps/{mapType}"
+@using TTRPGManager.Models
+@using Microsoft.EntityFrameworkCore
+@inject TTRPGManager.Data.CampaignDbContext Db
+
+@inject NavigationManager NavManager
+
+<div class="d-flex flex-column" style="height: calc(100vh - 40px);">
+	<div class="d-flex justify-content-between align-items-center mb-2">
+		<a href="/maps" class="btn btn-dark btn-icon me-2" aria-label="Back to Character Hub">
+			<img src="/images/BackIcon.png" alt="Back Icon" class="header-icon" />
+		</a>
+
+		<h1 class="text-capitalize">@mapType Directory</h1>
+
+		<a href="/" class="btn btn-dark btn-icon me-2" aria-label="Back to Main Menu">
+			<img src="/images/HomeIcon.png" alt="Home Icon" class="header-icon" />
+		</a>
+	</div>
+
+	<div class="flex-grow-1" style="overflow-y: auto; overflow-x: hidden;">
+		@if (string.Equals(mapType, MapType.Town.ToString(), StringComparison.OrdinalIgnoreCase))
+		{
+			<div class="alert alert-info text-center" role="alert">
+				To add town maps, please navigate to the <a href="/towns" class="alert-link">Towns page</a> and create a town.
+			</div>
+		}
+
+		@if (MapList.Count == 0)
+		{
+			<p>No maps found.</p>
+		} else
+		{
+			<div class="row g-4">
+			
+				@foreach (var map in MapList)
+				{
+					<div class="col-12 col-md-6 col-lg-4">
+
+						<div class="card map-card text-white" @onclick="() => GoToMapDetails(map.Id)">
+							<div class="position-relative">
+								<img class="map-card-img" src="@map.Image" />
+
+								@if (map.IsPlayerSafe)
+								{
+									<img src="/images/SafeForPlayersCheck.png"
+										 style="position: absolute; top: 5px; right: 5px; width: 30px; height: 30px;"
+										 title="Player Safe" />
+								}
+							</div>
+							<div class="card-img-overlay p-3 d-flex flex-column justify-content-end">
+								<h5>@map.Name</h5>
+							</div>
+						</div>
+
+					</div>
+				}
+
+			</div>
+		}
+	</div>
+
+	<div class="mt-auto pt-3 pb-0 border-top d-flex justify-content-between align-items-center">
+		<span><img src="/images/SafeForPlayersCheck.png" style="width: 30px; height: 30px;" title="Player Safe" /> = Safe to show Players</span>
+		
+		@* Hide Add button for Town maps *@
+		@if (!string.Equals(mapType, MapType.Town.ToString(), StringComparison.OrdinalIgnoreCase)) 
+		{
+			<button class="btn character-add-btn text-capitalize" @onclick="GoToCreatePage">Add New @mapType Map</button>
+		}
+	</div>
+</div>
+
+@code {
+	
+	[Parameter]
+	public string mapType { get; set; } = string.Empty;
+
+	private List<Map> MapList = new List<Map>();
+
+	// Lifecycle method runs automatically when the page opens
+	protected override async Task OnParametersSetAsync()
+	{
+		if (!Enum.TryParse<MapType>(mapType, true, out MapType myParsedEnumVariable))
+		{
+			// Handle the case where parsing fails (e.g., show an error message or navigate back)
+			Console.WriteLine($"Invalid map type: {mapType}");
+			return;
+		}
+
+
+		// Fetch the data
+		MapList = await Db.Maps
+		.Where(m => m.Type == myParsedEnumVariable)
+		.OrderBy(m => m.Name)
+		.ToListAsync();
+	}
+
+	// Handles the routing for the Add button
+	private void GoToCreatePage()
+	{
+		NavManager.NavigateTo($"/maps/create/{mapType}");
+	}
+
+	// Handles routing when clicking on a specific map card
+	private void GoToMapDetails(int mapID)
+	{
+		NavManager.NavigateTo($"/maps/view/{mapID}");
+	}
+
+}

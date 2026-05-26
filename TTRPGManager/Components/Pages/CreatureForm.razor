@@ -1,0 +1,1343 @@
+﻿@using TTRPGManager.Models
+@inject TTRPGManager.Data.CampaignDbContext Db
+@inject NavigationManager NavManager
+
+<!-- Form used to create new NPCs and Enemies -->
+
+<style>
+    /* Removes the sticky focus highlight from standard buttons */
+    .btn:focus {
+        box-shadow: none !important;
+        outline: none !important;
+    }
+
+    /* Removes the green validation boxes from Blazor radio buttons */
+    input[type="radio"].valid,
+    input[type="radio"].modified,
+    input[type="radio"]:focus {
+        outline: none !important;
+        box-shadow: none !important;
+    }
+</style>
+
+<h3>Create New Character</h3>
+
+<!-- Four tabs/buttons to switch between different sections of the form -->
+<div class="btn-group mb-0" role="group">
+    <button type="button" class="btn @(activeTab == 1 ? "btn-primary" : "btn-outline-primary")" @onclick="() => tabSwitcher(1)">Bio</button>
+    <button type="button" class="btn @(activeTab == 2 ? "btn-primary" : "btn-outline-primary")" @onclick="() => tabSwitcher(2)">Basic Stats</button>
+    <button type="button" class="btn @(activeTab == 3 ? "btn-primary" : "btn-outline-primary")" @onclick="() => tabSwitcher(3)">Features & Traits</button>
+    <button type="button" class="btn @(activeTab == 4 ? "btn-primary" : "btn-outline-primary")" @onclick="() => tabSwitcher(4)">Magic Abilities</button>
+</div>
+
+
+<EditForm EditContext="creatureContext" class="d-flex flex-column" style="height: calc(100vh - 130px);">
+    <DataAnnotationsValidator />
+    <ValidationSummary class="text-danger" />
+
+    <div class="flex-grow-1 px-3 border-top" style="overflow-y: auto; overflow-x: hidden;">
+
+        @if (activeTab == 1) // Bio Tab
+        {
+            <h4>Bio Information</h4>
+
+            <div class="mb-3">
+                <label>Name: <span class="text-danger">*</span></label>
+                <InputText class="form-control" @bind-Value="newCreature.Name" />
+            </div>
+
+            @if (newCreature is Npc npcData)
+            {
+                <div class="mb-3">
+                    <label>Location:</label>
+                    <InputText class="form-control" @bind-Value="npcData.Location" />
+                </div>
+            }
+
+            <div class="row mb-3">
+                <div class="col">
+                    <label>Race:</label>
+                    <InputSelect @bind-Value="selectedRace" class="form-select">
+                        @foreach (var race in Enum.GetValues<StandardRace>())
+                        {
+                            <option value="@race">@race</option>
+                        }
+                    </InputSelect>
+                </div>
+
+                @if (selectedRace == StandardRace.Custom)
+                {
+                    <div class="col">
+                        <label>Custom Race Name:</label>
+                        <InputText @bind-Value="newCreature.Race" class="form-control" placeholder="e.g. Tabaxi" />
+                    </div>
+                }
+
+                <div class="col">
+                    <label>Alignment:</label>
+                    <InputSelect @bind-Value="newCreature.Alignment" class="form-select">
+                        @foreach (var align in Enum.GetValues<Alignment>())
+                        {
+                            <option value="@align">@align</option>
+                        }
+                    </InputSelect>
+                </div>
+
+                <div class="col">
+                    <label>Size:</label>
+                    <InputSelect @bind-Value="newCreature.Size" class="form-select">
+                        @foreach (var s in Enum.GetValues<Size>())
+                        {
+                            <option value="@s">@s</option>
+                        }
+                    </InputSelect>
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col">
+                    <label>Class Type:</label>
+                    <InputSelect @bind-Value="newCreature.ClassType" class="form-select">
+                        @foreach (var type in Enum.GetValues<ClassType>())
+                        {
+                            <option value="@type">@type</option>
+                        }
+                    </InputSelect>
+                </div>
+
+                <div class="col">
+                    <label>Monster Type:</label>
+                    <InputSelect @bind-Value="newCreature.MonsterType" class="form-select">
+                        @foreach (var type in Enum.GetValues<MonsterType>())
+                        {
+                            <option value="@type">@type</option>
+                        }
+                    </InputSelect>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label>Backstory:</label>
+                <InputTextArea class="form-control" @bind-Value="newCreature.Description" />
+            </div>
+
+            <div class="mb-3 border rounded p-3 bg-light text-dark">
+                <label class="fw-bold mb-2">Portrait</label>
+
+                @* Scenario 1: No photo exists yet. Show the upload button as usual. *@
+                @if (string.IsNullOrWhiteSpace(newCreature.Portrait) || newCreature.Portrait == "/images/DefaultNpcPortrait.png")
+                {
+                    <button type="button" class="btn btn-outline-info w-100 mb-1" @onclick="PickImageNative">Browse for Creature Portrait...</button>
+                    <small class="text-muted mt-1 d-block">Recommended format: 16:9 widescreen.</small>
+                }
+                @* Scenario 2: A photo DOES exist. Show a preview and a success message. *@
+                else
+                {
+                    <div class="d-flex align-items-center gap-3">
+                        <img src="@newCreature.Portrait" alt="Portrait Preview" class="img-thumbnail" style="max-height: 75px; max-width: 75px;" />
+
+                        <div class="flex-grow-1">
+                            <div class="alert alert-success p-2 mb-1 d-flex align-items-center" role="alert">
+                                <span class="oi oi-check me-2" aria-hidden="true"></span>
+                                <strong>Photo Uploaded!</strong>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="ClearPhoto">Change Photo</button>
+                        </div>
+                    </div>
+                }
+            </div>
+
+        }
+
+        @if (activeTab == 2) // Character Stats Tab
+        {
+            <h4>Character Stats</h4>
+
+            <div class="row mb-3">
+                <div class="col">
+                    <label>Strength:</label>
+                    <InputNumber class="form-control" @bind-Value="newCreature.Strength" min="0" max="30" />
+                    <span class="text-muted">
+                        Modifier: @(newCreature.StrengthModifier >= 0 ? "+" : "")@newCreature.StrengthModifier
+                    </span>
+                    <div class="form-check mt-2">
+                        <InputCheckbox @bind-Value="newCreature.HasStrengthProficiency" class="form-check-input" />
+                        <label class="form-check-label">Str Proficiency</label>
+                    </div>
+                </div>
+
+                <div class="col">
+                    <label>Dexterity:</label>
+                    <InputNumber class="form-control" @bind-Value="newCreature.Dexterity" min="0" max="30" />
+                    <span class="text-muted">
+                        Modifier: @(newCreature.DexterityModifier >= 0 ? "+" : "")@newCreature.DexterityModifier
+                    </span>
+                    <div class="form-check mt-2">
+                        <InputCheckbox @bind-Value="newCreature.HasDexterityProficiency" class="form-check-input" />
+                        <label class="form-check-label">Dex Proficiency</label>
+                    </div>
+                </div>
+
+                <div class="col">
+                    <label>Constitution:</label>
+                    <InputNumber class="form-control" @bind-Value="newCreature.Constitution" min="0" max="30" />
+                    <span class="text-muted">
+                        Modifier: @(newCreature.ConstitutionModifier >= 0 ? "+" : "")@newCreature.ConstitutionModifier
+                    </span>
+                    <div class="form-check mt-2">
+                        <InputCheckbox @bind-Value="newCreature.HasConstitutionProficiency" class="form-check-input" />
+                        <label class="form-check-label">Con Proficiency</label>
+                    </div>
+                </div>
+
+                <div class="col">
+                    <label>Intelligence:</label>
+                    <InputNumber class="form-control" @bind-Value="newCreature.Intelligence" min="0" max="30" />
+                    <span class="text-muted">
+                        Modifier: @(newCreature.IntelligenceModifier >= 0 ? "+" : "")@newCreature.IntelligenceModifier
+                    </span>
+                    <div class="form-check mt-2">
+                        <InputCheckbox @bind-Value="newCreature.HasIntelligenceProficiency" class="form-check-input" />
+                        <label class="form-check-label">Int Proficiency</label>
+                    </div>
+                </div>
+
+                <div class="col">
+                    <label>Wisdom:</label>
+                    <InputNumber class="form-control" @bind-Value="newCreature.Wisdom" min="0" max="30" />
+                    <span class="text-muted">
+                        Modifier: @(newCreature.WisdomModifier >= 0 ? "+" : "")@newCreature.WisdomModifier
+                    </span>
+                    <div class="form-check mt-2">
+                        <InputCheckbox @bind-Value="newCreature.HasWisdomProficiency" class="form-check-input" />
+                        <label class="form-check-label">Wis Proficiency</label>
+                    </div>
+                </div>
+
+                <div class="col">
+                    <label>Charisma:</label>
+                    <InputNumber class="form-control" @bind-Value="newCreature.Charisma" min="0" max="30" />
+                    <span class="text-muted">
+                        Modifier: @newCreature.CharismaModifier
+                    </span>
+                    <div class="form-check mt-2">
+                        <InputCheckbox @bind-Value="newCreature.HasCharismaProficiency" class="form-check-input" />
+                        <label class="form-check-label">Cha Proficiency</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col">
+                    <label>Hit Points:</label>
+                    <InputNumber class="form-control" @bind-Value="newCreature.MaxHitPoints" />
+                </div>
+
+                <div class="col">
+                    <label>Hit Dice:</label>
+                    <InputText class="form-control" @bind-Value="newCreature.HitDice" placeholder="e.g., 2d6" />
+                    <button type="button" class="btn btn-secondary mt-2" @onclick="RollHP">Generate HP</button>
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col">
+                    <label class="fw-bold">Challenge Rating:</label>
+                    <InputSelect @bind-Value="newCreature.ChallengeRating" class="form-select">
+                        <option value="0">0</option>
+                        <option value="0.125">1/8</option>
+                        <option value="0.25">1/4</option>
+                        <option value="0.5">1/2</option>
+                        @for (int i = 1; i <= 30; i++)
+                        {
+                            <option value="@i">@i</option>
+                        }
+                    </InputSelect>
+                    <small class="text-muted">Proficiency Bonus: @newCreature.ProficiencyBonus</small>
+                </div>
+
+                <div class="col">
+                    <label>Initiative Bonus:</label>
+                    <div class="input-group">
+
+                        <span class="input-group-text">Total:</span>
+
+                        <InputNumber class="form-control" @bind-Value="newCreature.InitiativeBonus" />
+
+                        <button type="button" class="btn btn-outline-info"
+                                title="Reset to Dex Modifier"
+                                @onclick="() => newCreature.InitiativeBonus = newCreature.DexterityModifier">
+                            Dex: @(newCreature.DexterityModifier >= 0 ? "+" : "")@newCreature.DexterityModifier
+                        </button>
+                    </div>
+                    <small class="text-muted">Calculated from Dex by default. Edit to override.</small>
+                </div>
+
+                <div class="col">
+                    <label>Armor Class:</label>
+                    <div class="input-group">
+                        @if (newCreature.UseManualAC)
+                        {
+                            <InputNumber class="form-control" @bind-Value="newCreature.ManualACValue" />
+                            <button type="button" class="btn btn-warning" @onclick="() => newCreature.UseManualAC = false">Auto</button>
+                        }
+                        else
+                        {
+                            <div class="form-control bg-light">@newCreature.ArmorClass</div>
+                            <button type="button" class="btn btn-outline-secondary" @onclick="() => newCreature.UseManualAC = true">Override</button>
+                        }
+                    </div>
+                    <small class="text-muted">@(newCreature.UseManualAC ? "Manual mode active" : "Calculated from Dex (Gear Bonuses added later)")</small>
+                </div>
+            </div>
+        }
+
+        @if (activeTab == 3) // Features Tab
+        {
+            <h4>Features & Traits</h4>
+
+            <div class="row mb-4">
+
+                <div class="col-md-3">
+                    <!-- Speed Input Column -->
+                    <label class="fw-bold mb-2">Add Movement Speed</label>
+
+                    <div class="mb-2">
+                        <small>Movement Type:</small>
+                        <InputSelect @bind-Value="selectedSpeedType" class="form-select">
+                            @foreach (var speedType in Enum.GetValues<MovementType>())
+                            {
+                                <option value="@speedType">@speedType</option>
+                            }
+                        </InputSelect>
+                    </div>
+
+                    <div class="mb-2">
+                        <small>Speed (ft)</small>
+                        <div class="input-group">
+                            <InputNumber class="form-control" @bind-Value="speedValue" min="0" />
+                            <button type="button" class="btn btn-secondary" @onclick="AddSpeed">Add</button>
+                        </div>
+                    </div>
+
+                    @if (selectedSpeedType == MovementType.Flying)
+                    {
+                        <div class="form-check mt-2">
+                            <label class="form-check-label">Can Hover?</label>
+                            <InputCheckbox @bind-Value="canHover" class="form-check-input" />
+                        </div>
+                    }
+                </div>
+
+                <div class="col-md-3">
+                    <!-- Speed Output Column -->
+                    <label class="fw-bold mb-2">Current Speeds:</label>
+                    @foreach (var speed in newCreature.Speeds)
+                    {
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="me-3">@speed.Type: @speed.Speed ft.</span>
+                            @if (speed.AbleToHover)
+                            {
+                                <span class="me-3">(Hover)</span>
+                            }
+                            <button type="button" class="btn btn-sm btn-danger py-0 px-2" @onclick="() => RemoveSpeed(speed.Type)">X</button>
+                        </div>
+                    }
+                </div>
+
+                <div class="col-md-3">
+                    <!-- Modifier Input Column -->
+                    <label class="fw-bold mb-2">Add Modifiers & Conditions</label>
+
+                    <div class="mb-2">
+                        <small>Modifier Type:</small>
+                        <InputSelect @bind-Value="selectedModifierType" class="form-select">
+                            @foreach (var modifierType in Enum.GetValues<ModifierType>())
+                            {
+                                <option value="@modifierType">@modifierType</option>
+                            }
+                        </InputSelect>
+                    </div>
+
+                    <div class="mb-4">
+                        <small>Damage Type:</small>
+                        <div class="input-group">
+                            <InputSelect @bind-Value="selectedDamageType" class="form-select">
+                                @foreach (var damageType in Enum.GetValues<DamageType>())
+                                {
+                                    <option value="@damageType">@damageType</option>
+                                }
+                            </InputSelect>
+                            <button type="button" class="btn btn-secondary" @onclick="AddModifier">Add</button>
+                        </div>
+                    </div>
+
+                    <label class="fw-bold mb-2">Condition Immunities</label>
+                    <div>
+                        <div class="input-group">
+                            <InputSelect @bind-Value="selectedConditionType" class="form-select">
+                                @foreach (var conditionType in Enum.GetValues<ConditionType>())
+                                {
+                                    <option value="@conditionType">@conditionType</option>
+                                }
+                            </InputSelect>
+                            <button type="button" class="btn btn-secondary" @onclick="AddCondition">Add</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <!-- Modifier Output Column -->
+                    <label class="fw-bold mb-2">Current Modifiers & Conditions:</label>
+
+                    @foreach (var modifier in newCreature.Modifiers)
+                    {
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="me-3">@modifier.Modifier to @modifier.Type</span>
+                            <button type="button" class="btn btn-sm btn-danger py-0 px-2" @onclick="() => RemoveModifier(modifier.Type)">X</button>
+                        </div>
+                    }
+
+                    @foreach (var condition in newCreature.Conditions)
+                    {
+                        <div class="d-flex align-items-center mb-2">
+                            <span class="me-3">Immune to @condition.Type</span>
+                            <button type="button" class="btn btn-sm btn-danger py-0 px-2" @onclick="() => RemoveCondition(condition.Type)">X</button>
+                        </div>
+                    }
+                </div>
+
+                <div class="row mb-3">
+                    <!-- Start of Row Two -->
+
+                    <div class="col-md-6">
+                        <!-- Skills Column -->
+                        <div class="d-flex justify-content-between align-items-end mb-2 border-bottom pb-1">
+                            <label class="fw-bold mb-0">Skills</label>
+                            <small class="text-muted" style="font-size: 0.75rem;">N = None | P = Proficient | E = Expertise</small>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 d-flex gap-2 justify-content-end pe-3">
+                                <!-- First Column Header Labels -->
+                                <span style="width: 13px; text-align: center;">N</span>
+                                <span style="width: 13px; text-align: center;">P</span>
+                                <span style="width: 13px; text-align: center;">E</span>
+                            </div>
+                            <div class="col-md-6 d-flex gap-2 justify-content-end pe-3">
+                                <!-- Second Column Header Labels -->
+                                <span style="width: 13px; text-align: center;">N</span>
+                                <span style="width: 13px; text-align: center;">P</span>
+                                <span style="width: 13px; text-align: center;">E</span>
+                            </div>
+                            @foreach (var skill in newCreature.Skills)
+                            {
+                                <div class="col-md-6 mb-2 d-flex align-items-center justify-content-between pe-3">
+                                    <small>@FormatEnumName(skill.Skill.ToString())</small>
+
+                                    <InputRadioGroup @bind-Value="skill.Proficiency" Name="@skill.Skill.ToString()">
+                                        <div class="d-flex gap-2">
+                                            <InputRadio Value="ProficiencyLevel.None" title="Not Proficient" />
+                                            <InputRadio Value="ProficiencyLevel.Proficient" title="Proficient" />
+                                            <InputRadio Value="ProficiencyLevel.Expertise" title="Expertise" />
+                                        </div>
+                                    </InputRadioGroup>
+                                </div>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="col-md-6 d-flex flex-column">
+                        <!-- Languages Column -->
+
+                        <div class="row mb-4 mt-3 ms-1">
+
+                            <div class="col-md-6">
+                                <label class="fw-bold mb-2">Add Languages:</label>
+
+                                <div class="mb-2">
+                                    <small>Language:</small>
+                                    <div class="input-group">
+                                        <InputSelect @bind-Value="selectedLanguageName" class="form-select">
+                                            @foreach (var language in Enum.GetValues<LanguageType>())
+                                            {
+                                                <option value="@language">@language</option>
+                                            }
+                                        </InputSelect>
+                                        <button type="button" class="btn btn-secondary" @onclick="AddLanguage">Add</button>
+                                    </div>
+                                </div>
+
+                                @if (selectedLanguageName == LanguageType.Custom)
+                                {
+                                    <div class="mb-2">
+                                        <small>Custom Language Name:</small>
+                                        <InputText @bind-Value="customLanguageName" class="form-control" />
+                                    </div>
+                                }
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="fw-bold mb-2">Current Languages:</label>
+
+                                <div class="d-flex flex-wrap gap-2">
+                                    @foreach (var language in newCreature.Languages)
+                                    {
+                                        <div class="d-flex align-items-center mb-2 border rounded px-2 py-1 bg-dark">
+                                            @if (language.SelectedLanguage == LanguageType.Custom)
+                                            {
+                                                <span class="me-2">@language.CustomLanguage</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="me-2">@language.SelectedLanguage</span>
+                                            }
+                                            <button type="button" class="btn btn-sm btn-danger py-0 px-2" @onclick="() => RemoveLanguage(language)">X</button>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <div class="flex-grow-1">
+                            <!-- Traits Column -->
+                            <div class="row mb-4 mt-3 ms-1">
+                                <div class="col-md-6">
+
+                                    <label class="fw-bold mb-2">Add Traits:</label>
+                                    <div class="input-group mb-2">
+                                        <InputText @bind-Value="newTraitName" class="form-control" placeholder="Trait Name" />
+                                        <button type="button" class="btn btn-secondary" @onclick="AddTrait">Add</button>
+                                    </div>
+                                    <InputTextArea @bind-Value="newTraitDescription" class="form-control mb-2" placeholder=" Trait Description&#10;*Cannot be blank*" />
+                                </div>
+
+                                <div class="col-md-6">
+                                    <label class="fw-bold mb-2">Current Traits:</label>
+                                    @foreach (var trait in newCreature.Traits)
+                                    {
+                                        <div class="mb-2 border rounded p-2 bg-light">
+                                            <div class="d-flex justify-content-between align-items-start">
+                                                <div class="text-truncate" style="max-width: 150px; min-width: 0">
+                                                    <strong>@trait.TraitName</strong>
+                                                </div>
+                                                <button type="button" class="btn btn-sm btn-danger py-0 px-2" @onclick="() => RemoveTrait(trait)">X</button>
+                                            </div>
+                                            <p class="mb-0 text-truncate" style="max-width: 150px; min-width: 0">@trait.TraitDescription</p>
+                                        </div>
+                                    }
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row mb-1 mt-1">
+                    <!-- Start of Row Three -->
+                    <hr />
+                    <div class="col-md-12">
+                        <!-- Abilities Column -->
+
+                        <label class="fw-bold mb-2">Abilities & Actions:</label>
+
+                        <div class="row mt-2">
+
+                            <div class="col-md-4">
+                                <small>Ability Type:</small>
+                                <InputSelect @bind-Value="newAbilityType" class="form-select">
+                                    @foreach (var type in Enum.GetValues<CreatureAbilityType>())
+                                    {
+                                        <option value="@type">@type</option>
+                                    }
+                                </InputSelect>
+                            </div>
+
+                            <div class="col-md-4">
+                                <small>Ability Name:</small>
+                                <InputText @bind-Value="newAbilityName" class="form-control" placeholder="e.g., Claw Attack" />
+                            </div>
+
+                            <div class="col-md-4">
+                                <small>Legendary Action Cost:</small>
+                                <InputNumber @bind-Value="newAbilityLegendaryActionCost" class="form-control" min="0" max="3" />
+                            </div>
+
+                            <div class="col-md-4">
+                                <small>Stat Modifier:</small>
+                                <InputSelect @bind-Value="newAbilityStat" class="form-select">
+                                    <option value="">N/A</option>
+                                    @foreach (var stat in Enum.GetValues<StatType>())
+                                    {
+                                        <option value="@stat">@stat</option>
+                                    }
+                                </InputSelect>
+                            </div>
+
+                            <div class="col-md-4">
+                                <small>Damage Type:</small>
+                                <InputSelect @bind-Value="newAbilityDamageType" class="form-select">
+                                    @foreach (var damageType in Enum.GetValues<DamageType>())
+                                    {
+                                        <option value="@damageType">@damageType</option>
+                                    }
+                                </InputSelect>
+                            </div>
+
+                            <div class="col-md-4">
+                                <small>Damage Dice:</small>
+                                <InputText @bind-Value="newAbilityDamageDice" class="form-control" placeholder="e.g., 1d6" />
+                            </div>
+
+                            <div class="col-md-4">
+                                <small>Misc. DMG Bonus:</small>
+                                <InputNumber @bind-Value="newAbilityMiscDamageBonus" class="form-control" min="0" placeholder="N/A" />
+                            </div>
+
+                            <div class="col-md-8">
+                                <small>Ability Description:</small>
+                                <InputTextArea @bind-Value="newAbilityDescription" class="form-control" placeholder="Describe the ability's effects, range, etc." />
+                            </div>
+
+                            <div class="col-md-12 d-flex justify-content-end mt-3">
+                                <button type="button" class="btn btn-primary" @onclick="AddAbility">Add Ability</button>
+                            </div>
+
+                        </div>
+                        <hr />
+                        <div class="row mt-4">
+                            <!-- Abilities Output Row -->
+                            <label class="fw-bold mb-2">Current Abilities:</label>
+                            @foreach (var abilityGroup in newCreature.Abilities.GroupBy(a => a.Type).OrderBy(a => a.Key))
+                            {
+                                <h5>@abilityGroup.Key</h5>
+                                @foreach (var ability in abilityGroup)
+                                {
+                                    <div class="mb-2 border rounded p-2 bg-light">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <div class="me-auto">
+                                                <strong>@ability.Name</strong>
+                                                <span class="text-muted ms-2">@GetAbilityDetails(ability)</span>
+                                            </div>
+                                            <button type="button" class="btn btn-sm btn-danger py-0 px-2" @onclick="() => RemoveAbility(ability)">X</button>
+                                        </div>
+                                        <p>@ability.Description</p>
+                                    </div>
+                                }
+                            }
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        }
+
+        @if (activeTab == 4) // Magic Abilities & Spells Tab
+        {
+            <h4>Magic Abilities</h4>
+
+            <div class="row mb-4">
+                <!-- Core Stats Row -->
+                <div class="col-md-3">
+                    <label>Casting Stats:</label>
+                    <InputSelect @bind-Value="newCreature.CastingStat" class="form-select">
+                        @foreach (var stat in Enum.GetValues<SpellcastingStat>())
+                        {
+                            <option value="@stat">@stat</option>
+                        }
+                    </InputSelect>
+                </div>
+
+                <div class="col-md-3">
+                    <label>Caster Level:</label>
+                    <InputNumber @bind-Value="newCreature.CasterLevel" class="form-control" min="0" />
+                </div>
+
+                <div class="col-md-3">
+                    <label>Spell Save DC:</label>
+                    <h5>@newCreature.SpellSaveDC</h5>
+                </div>
+
+                <div class="col-md-3">
+                    <label>Spell Attack Bonus:</label>
+                    <h5>@newCreature.SpellAttackBonus</h5>
+                </div>
+            </div>
+
+            <h4>Spell Slots:</h4>
+            <div class="row mb-4 justify-content-center">
+                <!-- Spell Slots Row -->
+
+                <div class="col-4 col-md-2 mb-2">
+                    <label>Level 1:</label>
+                    <InputNumber @bind-Value="newCreature.SpellSlotsLevel1" class="form-control" min="0" />
+                </div>
+
+                <div class="col-4 col-md-2 mb-2">
+                    <label>Level 2:</label>
+                    <InputNumber @bind-Value="newCreature.SpellSlotsLevel2" class="form-control" min="0" />
+                </div>
+
+                <div class="col-4 col-md-2 mb-2">
+                    <label>Level 3:</label>
+                    <InputNumber @bind-Value="newCreature.SpellSlotsLevel3" class="form-control" min="0" />
+                </div>
+
+                <div class="col-4 col-md-2 mb-2">
+                    <label>Level 4:</label>
+                    <InputNumber @bind-Value="newCreature.SpellSlotsLevel4" class="form-control" min="0" />
+                </div>
+
+                <div class="col-4 col-md-2 mb-2">
+                    <label>Level 5:</label>
+                    <InputNumber @bind-Value="newCreature.SpellSlotsLevel5" class="form-control" min="0" />
+                </div>
+
+                <div class="col-4 col-md-2 mb-2">
+                    <label>Level 6:</label>
+                    <InputNumber @bind-Value="newCreature.SpellSlotsLevel6" class="form-control" min="0" />
+                </div>
+
+                <div class="col-4 col-md-2 mb-2">
+                    <label>Level 7:</label>
+                    <InputNumber @bind-Value="newCreature.SpellSlotsLevel7" class="form-control" min="0" />
+                </div>
+
+                <div class="col-4 col-md-2 mb-2">
+                    <label>Level 8:</label>
+                    <InputNumber @bind-Value="newCreature.SpellSlotsLevel8" class="form-control" min="0" />
+                </div>
+
+                <div class="col-4 col-md-2 mb-2">
+                    <label>Level 9:</label>
+                    <InputNumber @bind-Value="newCreature.SpellSlotsLevel9" class="form-control" min="0" />
+                </div>
+
+            </div>
+
+            <hr />
+            <h4>Spells:</h4>
+            <div class="row mb-2">
+                <!-- New Spells Row -->
+
+                <div class="col-md-3">
+                    <label>Name:</label>
+                    <InputText @bind-Value="newSpell.Name" class="form-control" placeholder="Spell Name" />
+                </div>
+
+                <div class="col-md-3">
+                    <label>Level:</label>
+                    <InputNumber @bind-value="newSpell.Level" class="form-control" min="0" max="9" />
+                </div>
+
+                <div class="col-md-3">
+                    <label>Range:</label>
+                    <InputText @bind-Value="newSpell.Range" class="form-control" placeholder="e.g., 30 feet" />
+                </div>
+
+                <div class="col-md-3">
+                    <label>Cast Time:</label>
+                    <InputText @bind-Value="newSpell.CastingTime" class="form-control" placeholder="e.g., 1 action" />
+                </div>
+
+            </div>
+
+            <div class="row">
+
+                <div class="col-md-3">
+                    <label>Damage Dice:</label>
+                    <InputText @bind-Value="newSpell.DamageDice" class="form-control" placeholder="e.g., 1d6" />
+                </div>
+
+                <div class="col-md-3">
+                    <label>Duration:</label>
+                    <InputText @bind-Value="newSpell.Duration" class="form-control" placeholder="e.g., 1 minute" />
+                </div>
+
+                <div class="col-md-3">
+                    <label>Components:</label>
+                    <InputText @bind-Value="newSpell.Components" class="form-control" placeholder="e.g., V, S, M" />
+                    <small class="text-muted">Verbal, Somatic, Material</small>
+                </div>
+
+                <div class="col-md-3 mt-4">
+                    <label>Concentration: </label>
+                    <InputCheckbox @bind-Value="newSpell.IsConcentration" class="form-check-input" />
+                </div>
+
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-11">
+                    <label>Description:</label>
+                    <InputTextArea @bind-Value="newSpell.Description" class="form-control" placeholder="Spell Description:"></InputTextArea>
+                </div>
+
+                <div class="col-md-1 d-flex align-items-end">
+                    <button type="button" class="btn btn-secondary" @onclick="AddSpell">Add</button>
+                </div>
+            </div>
+
+            <div class="row mb-2">
+                <!-- Created Spells Row -->
+                <hr />
+                <h4>Current Spells:</h4>
+                @foreach (var spellGroup in newCreature.Spells.GroupBy(s => s.Level).OrderBy(s => s.Key))
+                {
+                    <h5 class="mt-3">
+                        @(spellGroup.Key == 0 ? "Cantrips" : $"Level {spellGroup.Key} Spells")
+                    </h5>
+
+                    <div class="row">
+                        @foreach (var spell in spellGroup)
+                        {
+                            <div class="col-md-6 mb-2">
+                                <div class="border rounded p-2 bg-light">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div>
+                                            <strong>@spell.Name</strong> <small>@CheckConcentration(spell) @GetSpellLevel(spell)</small>
+                                            <p class="mb-0"><small class="text-muted" style="font-size: 0.7rem;">@GetSpellDetails(spell)</small></p>
+                                        </div>
+                                        <button type="button" class="btn btn-sm btn-danger py-0 px-2" @onclick="() => RemoveSpell(spell)">X</button>
+                                    </div>
+                                    <p class="mb-0">@spell.Description</p>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+
+
+            </div>
+        }
+
+    </div>
+
+    <div class="mt-auto pt-3 pb-3 border-top d-flex justify-content-between align-items-center">
+        <button type="button" class="btn btn-danger" @onclick="CancelCreation">Cancel</button>
+        <button type="button" class="btn btn-success" @onclick="SaveCreature">Save Character</button>        
+    </div>
+
+</EditForm>
+
+@code {
+
+    [Parameter]
+    public bool IsEnemyMode { get; set; }
+
+    // The Generic Holding Pen
+    private BaseCreature newCreature;
+    private EditContext creatureContext;
+
+    // TODO: Add a Search feature to look up creatures, possibly also a filter feature
+
+    protected override void OnInitialized()
+    {
+                // Build the correct object based on the parameter
+        if (IsEnemyMode)
+        {
+            newCreature = new Enemy();
+        }
+        else
+        {
+            newCreature = new Npc();
+        }
+
+        creatureContext = new EditContext(newCreature);
+        newCreature.InitiativeBonus = newCreature.DexterityModifier;
+
+        if (!newCreature.Skills.Any())
+        {
+            foreach (SkillType skillType in Enum.GetValues<SkillType>())
+            {
+                newCreature.Skills.Add(new CreatureSkill
+                {
+                    Skill = skillType,
+                    Proficiency = ProficiencyLevel.None
+                });
+            }
+        }
+    }
+
+    // Add spaces to enum names that contain multiple words (e.g. "SlightOfHand" becomes "Slight Of Hand")
+    private string FormatEnumName(string myString)
+    {
+        return System.Text.RegularExpressions.Regex.Replace(myString, "([A-Z])", " $1").Trim();
+    }
+
+    // Track which tab the character builder is on
+    private int activeTab = 1;
+
+    // Default race for NPCs
+    private StandardRace selectedRace = StandardRace.Human;
+
+    // Switch tabs in the character builder
+    private void tabSwitcher(int tabIndex)
+    {
+        activeTab = tabIndex;
+    }
+
+    // Generate HP based on creature's Hit Dice
+    private void RollHP()
+    {
+        // Safety Check: Make sure HitDice isn't empty and contains a 'd'
+        if (string.IsNullOrWhiteSpace(newCreature.HitDice) || !newCreature.HitDice.Contains('d')) return;
+
+        try
+        {
+            int totalHP = 0;
+            Random rnd = new Random();
+
+            // Split the string (e.g., "3d8" becomes ["3", "8"])
+            string[] parts = newCreature.HitDice.ToLower().Split('d');
+
+            // Convert the strings to integers
+            int numberOfDice = int.Parse(parts[0]);
+            int dieSize = int.Parse(parts[1]);
+
+            for (int i = 0; i < numberOfDice; i++)
+            {
+                totalHP += rnd.Next(1, dieSize + 1);
+            }
+
+            // Add the Constitution Modifier per Hit Die
+            totalHP += (newCreature.ConstitutionModifier * numberOfDice);
+
+            // Update the model (Ensure HP is at least 1)
+            newCreature.MaxHitPoints = Math.Max(1, totalHP);
+            newCreature.CurrentHitPoints = newCreature.MaxHitPoints; // Sync current HP with Max
+        }
+        catch
+        {
+
+        }
+    }
+
+    // Speed Logic
+    private MovementType selectedSpeedType = MovementType.Walking;
+    private int speedValue = 30;
+    private bool canHover = false;
+
+    private void AddSpeed()
+    {
+        // Check if the speed type already exists for this NPC
+        var existingSpeed = newCreature.Speeds.FirstOrDefault(item => item.Type == selectedSpeedType);
+
+        // Force hover to false unless the speed is actually Flying
+        bool appliedHoverState = false;
+        if (selectedSpeedType == MovementType.Flying)
+        {
+            appliedHoverState = canHover;
+        }
+
+        // If speed type exists, replace it with new speed value and hover state.
+        if (existingSpeed != null)
+        {
+            // Update the existing speed
+            existingSpeed.Speed = speedValue;
+            existingSpeed.AbleToHover = appliedHoverState;
+        }
+        else // Otherwise, add a new speed entry to the list.
+        {
+            // Create a new speed
+            newCreature.Speeds.Add(new MovementSpeed
+            {
+                Type = selectedSpeedType,
+                Speed = speedValue,
+                AbleToHover = appliedHoverState
+            });
+        }
+
+        // Reset the UI back to defaults after they click "Add"
+        selectedSpeedType = MovementType.Walking;
+        speedValue = 30;
+        canHover = false;
+    }
+    private void RemoveSpeed(MovementType speedType)
+    {
+        var existingSpeed = newCreature.Speeds.FirstOrDefault(item => item.Type == speedType);
+        if (existingSpeed != null)
+        {
+            newCreature.Speeds.Remove(existingSpeed);
+        }
+    }
+
+
+    // Modifier & Condition Logic
+    private ModifierType selectedModifierType;
+    private DamageType selectedDamageType;
+    private ConditionType selectedConditionType;
+
+    private void AddModifier()
+    {
+        // Check if the damage type already has an existing modifier for this NPC
+        var existingModifier = newCreature.Modifiers.FirstOrDefault(item => item.Type == selectedDamageType);
+
+        // If damage type exists, replace it with new modifier value
+        if (existingModifier != null)
+        {
+            // Update the existing damage modifier
+            existingModifier.Modifier = selectedModifierType;
+            existingModifier.Type = selectedDamageType;
+        }
+        else // Otherwise, add a new damage modifier entry to the list.
+        {
+            // Create a new damage modifier
+            newCreature.Modifiers.Add(new DamageModifier
+            {
+                Type = selectedDamageType,
+                Modifier = selectedModifierType
+            });
+        }
+    }
+    private void RemoveModifier(DamageType damageType)
+    {
+        var existingModifier = newCreature.Modifiers.FirstOrDefault(item => item.Type == damageType);
+        if (existingModifier != null)
+        {
+            newCreature.Modifiers.Remove(existingModifier);
+        }
+    }
+    private void AddCondition()
+    {
+        // Check if the condition type already has an existing immunity for this NPC
+        var existingImmunity = newCreature.Conditions.FirstOrDefault(item => item.Type == selectedConditionType);
+
+        // If condition type exists, do nothing
+        if (existingImmunity != null)
+        {
+
+        }
+        else // Otherwise, add a new condition immunity to the list.
+        {
+            // Create a new condition immunity
+            newCreature.Conditions.Add(new ConditionImmunity
+            {
+                Type = selectedConditionType,
+            });
+        }
+    }
+    private void RemoveCondition(ConditionType conditionType)
+    {
+        var existingCondition = newCreature.Conditions.FirstOrDefault(item => item.Type == conditionType);
+        if (existingCondition != null)
+        {
+            newCreature.Conditions.Remove(existingCondition);
+        }
+    }
+
+
+    // Language Logic
+    private LanguageType selectedLanguageName;
+    private string? customLanguageName;
+
+    private void AddLanguage()
+    {
+        // Check if the NPC already has an existing entry for this language
+        var existingLanguage = newCreature.Languages.FirstOrDefault(item => item.SelectedLanguage == selectedLanguageName && item.CustomLanguage == customLanguageName);
+
+        // If language already exists, do nothing
+        if (existingLanguage != null)
+        {
+
+        }
+        else if (selectedLanguageName == LanguageType.Custom && !string.IsNullOrWhiteSpace(customLanguageName))
+        {
+            // If it's a custom language, add it with the custom name
+            newCreature.Languages.Add(new CreatureLanguage
+            {
+                SelectedLanguage = selectedLanguageName,
+                CustomLanguage = customLanguageName
+            });
+            // Reset the custom language input after adding
+            customLanguageName = null;
+        }
+        else // Otherwise, add the new language to the list.
+        {
+            // Create a new language entry
+            newCreature.Languages.Add(new CreatureLanguage
+            {
+                SelectedLanguage = selectedLanguageName,
+            });
+        }
+    }
+    private void RemoveLanguage(CreatureLanguage languageToRemove)
+    {
+        newCreature.Languages.Remove(languageToRemove);
+    }
+
+
+    // Trait Logic
+    private string newTraitName = "";
+    private string newTraitDescription = "";
+
+    private void AddTrait()
+    {
+        if (!string.IsNullOrWhiteSpace(newTraitName) && !string.IsNullOrWhiteSpace(newTraitDescription))
+        {
+            newCreature.Traits.Add(new CreatureTrait
+            {
+                TraitName = newTraitName,
+                TraitDescription = newTraitDescription
+            });
+            // Reset the input fields after adding
+            newTraitName = "";
+            newTraitDescription = "";
+        }
+    }
+    private void RemoveTrait(CreatureTrait traitToRemove)
+    {
+        newCreature.Traits.Remove(traitToRemove);
+    }
+
+
+    // Ability Logic
+    private CreatureAbilityType newAbilityType;
+    private StatType? newAbilityStat; // for attack bonuses based on character base stats (Str, Dex, etc.))
+    private DamageType newAbilityDamageType = DamageType.None;
+
+    private int? newAbilityMiscDamageBonus;
+    private int newAbilityLegendaryActionCost = 0;
+
+    private string newAbilityName = "";
+    private string newAbilityDescription = "";
+    private string? newAbilityDamageDice;
+
+    private void AddAbility()
+    {
+        if (!string.IsNullOrWhiteSpace(newAbilityName) && !string.IsNullOrWhiteSpace(newAbilityDescription))
+        {
+            newCreature.Abilities.Add(new CreatureAbility
+            {
+                Name = newAbilityName,
+                Description = newAbilityDescription,
+                Type = newAbilityType,
+                DamageType = newAbilityDamageType,
+                LegendaryActionCost = newAbilityLegendaryActionCost,
+                MiscDamageBonus = newAbilityMiscDamageBonus,
+                DamageDice = newAbilityDamageDice,
+                AbilityStatType = newAbilityStat
+            });
+
+            // Reset the input fields after adding
+            newAbilityName = "";
+            newAbilityDescription = "";
+            newAbilityType = default;
+            newAbilityStat = null;
+            newAbilityDamageType = DamageType.None;
+            newAbilityDamageDice = null;
+            newAbilityMiscDamageBonus = null;
+            newAbilityLegendaryActionCost = 0;
+        }
+    }
+    private void RemoveAbility(CreatureAbility abilityToRemove)
+    {
+        newCreature.Abilities.Remove(abilityToRemove);
+    }
+    private string GetAbilityDetails(CreatureAbility ability)
+    {
+        List<string> statDetails = new List<string>();
+        int totalBonus = 0;
+
+        // TODO: Add validation to ensure DamageDice has a value if a DamageType is selected (excluding DamageType.None)
+        if (!string.IsNullOrWhiteSpace(ability.DamageDice))
+        {
+            switch (ability.AbilityStatType) // Add corresponding stat modifier to the damage bonus if the ability is based on a character stat
+            {
+                case StatType.Strength:
+                    totalBonus += newCreature.StrengthModifier;
+                    break;
+
+                case StatType.Dexterity:
+                    totalBonus += newCreature.DexterityModifier;
+                    break;
+
+                case StatType.Constitution:
+                    totalBonus += newCreature.ConstitutionModifier;
+                    break;
+
+                case StatType.Intelligence:
+                    totalBonus += newCreature.IntelligenceModifier;
+                    break;
+
+                case StatType.Wisdom:
+                    totalBonus += newCreature.WisdomModifier;
+                    break;
+
+                case StatType.Charisma:
+                    totalBonus += newCreature.CharismaModifier;
+                    break;
+
+                default:
+                    break;
+            }
+
+            if (ability.MiscDamageBonus.HasValue) // Add any miscellaneous damage bonus from the input field
+            {
+                totalBonus += ability.MiscDamageBonus.Value;
+            }
+
+            if (totalBonus > 0)
+            {
+                statDetails.Add($"({ability.DamageDice} + {totalBonus})"); // Display the damage dice and total bonus in the ability details
+            }
+            else if (totalBonus < 0)
+            {
+                statDetails.Add($"({ability.DamageDice} - {Math.Abs(totalBonus)})"); // Handle negative bonuses as well
+            }
+            else
+            {
+                statDetails.Add($"({ability.DamageDice})"); // If there's no bonus, just display the damage dice
+            }
+
+
+
+            if (ability.DamageType != DamageType.None) { statDetails.Add($"{ability.DamageType} Damage"); } // Display the damage type if it's not "None"
+
+        }
+
+        if (ability.LegendaryActionCost > 0)
+        {
+            statDetails.Add($"Costs {ability.LegendaryActionCost} Legendary Action(s)"); // Display the legendary action cost if it's greater than 0}
+        }
+        else if (statDetails.Count > 0)
+        {
+            statDetails.Add(""); // Add an empty string to include " -- " for style/formatting purposes
+        }
+
+        return string.Join(" -- ", statDetails);
+    }
+
+
+    // Spell Logic
+    private CreatureSpell newSpell = new CreatureSpell();
+
+    private void AddSpell()
+    {
+        if (!string.IsNullOrEmpty(newSpell.Name))
+        {
+            newCreature.Spells.Add(newSpell);
+            newSpell = new CreatureSpell();
+        }
+    }
+    private void RemoveSpell(CreatureSpell spellToRemove)
+    {
+        newCreature.Spells.Remove(spellToRemove);
+    }
+    private string CheckConcentration(CreatureSpell spell)
+    {
+        if (spell.IsConcentration)
+        {
+            return " (C) ";
+        }
+        else
+        {
+            return " ";
+        }
+    }
+    private string GetSpellLevel(CreatureSpell spell)
+    {
+        if (spell.Level == 0)
+        {
+            return "Cantrip";
+        }
+        else
+        {
+            return $"- Level  {spell.Level} -";
+        }
+    }
+    private string GetSpellDetails(CreatureSpell spell)
+    {
+        List<string> spellDetails = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(spell.DamageDice)) { spellDetails.Add($" {spell.DamageDice}"); }
+        if (!string.IsNullOrWhiteSpace(spell.CastingTime)) { spellDetails.Add($"Cast Time: {spell.CastingTime}"); }
+        if (!string.IsNullOrWhiteSpace(spell.Range)) { spellDetails.Add($"Range: {spell.Range}"); }
+        if (!string.IsNullOrWhiteSpace(spell.Components)) { spellDetails.Add($"Components: {spell.Components}"); }
+        if (!string.IsNullOrWhiteSpace(spell.Duration)) { spellDetails.Add($"Duration: {spell.Duration}"); }
+
+        return string.Join(" | ", spellDetails);
+
+    }
+
+
+    private async Task PickImageNative()
+    {
+        try
+        {
+            // Trigger the Native Windows/Mac File Picker
+            var result = await Microsoft.Maui.Storage.FilePicker.Default.PickAsync(new PickOptions
+            {
+                PickerTitle = "Select a Creature Portrait",
+                FileTypes = FilePickerFileType.Images
+            });
+
+            // If they actually picked a file (and didn't hit cancel)
+            if (result != null)
+            {
+                // Read the file directly from the operating system
+                using var stream = await result.OpenReadAsync();
+                using var memoryStream = new MemoryStream();
+                await stream.CopyToAsync(memoryStream);
+
+                // Convert the raw bytes into our Base64 string for the database
+                var buffer = memoryStream.ToArray();
+                var base64 = Convert.ToBase64String(buffer);
+
+                // Save it to the model (using the native ContentType like image/png)
+                newCreature.Portrait = $"data:{result.ContentType};base64,{base64}";
+            }
+        }
+        catch (Exception ex)
+        {
+            // Failsafes silently if the user closes the window without picking anything
+            Console.WriteLine($"Image picking failed: {ex.Message}");
+        }
+    }
+
+    private void ClearPhoto()
+    {
+        // Revert the portrait back to the default image,
+        // which triggers Scenario 1 to show the upload button again
+        newCreature.Portrait = "/images/DefaultNpcPortrait.png";
+    }
+
+    // Fires only when Submit button is clicked.
+    private async Task SaveCreature() 
+    {
+        if (creatureContext.Validate())
+        {
+            if (selectedRace != StandardRace.Custom)
+            {
+                newCreature.Race = selectedRace.ToString();
+            }
+
+            Db.BaseCreatures.Add(newCreature);
+            await Db.SaveChangesAsync();
+
+            // Route based on what they are building
+            if (IsEnemyMode)
+            {
+                NavManager.NavigateTo("/enemies");
+            }
+            else
+            {
+                NavManager.NavigateTo("/npcs");
+            }
+        }
+    }
+
+    private void CancelCreation()
+    {
+        if (IsEnemyMode)
+        {
+            NavManager.NavigateTo("/enemies");
+        }
+        else
+        {
+            NavManager.NavigateTo("/npcs");
+        }
+    }
+
+}

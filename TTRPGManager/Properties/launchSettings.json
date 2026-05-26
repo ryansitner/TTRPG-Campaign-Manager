@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "TTRPGManager": {
+      "commandName": "Project",
+      "nativeDebugging": false
+    }
+  }
+}

@@ -1,0 +1,176 @@
+﻿@page "/towns/create"
+@using TTRPGManager.Models
+
+@inject TTRPGManager.Data.CampaignDbContext Db
+@inject NavigationManager NavManager
+
+<h3 class="text-capitalize">Town Create Form</h3>
+
+<EditForm EditContext="townContext" class="d-flex flex-column" style="height: calc(100vh - 60px);">
+    <DataAnnotationsValidator />
+    <ValidationSummary class="text-danger" />
+
+    <div class="card p-4 bg-dark text-white flex-grow-1" style="overflow-y: auto; overflow-x: hidden;">
+
+        <div class="row mb-3">
+            <div class="col mb-3">
+                <label>Town Name: <span class="text-danger">*</span></label>
+                <InputText @bind-Value=newTown.Name class="form-control" />
+            </div>
+        </div>
+
+        <div class="card bg-dark border-secondary mb-4"> 
+            <div class="card-header">
+                <p>Town Map</p>
+            </div>
+
+            <div class="card-body">
+                @* Scenario 1: No image uploaded yet. Show the file input. *@
+                @if (string.IsNullOrWhiteSpace(newMap.Image))
+                {
+                    <button type="button" class="btn btn-outline-info w-100 mb-1" @onclick="PickImageNative">Browse for Map Image...</button>
+                    <small class="text-muted mt-1 d-block">Recommended format: 16:9 widescreen.</small>
+                }
+                @* Scenario 2: Image exists. Show success banner and preview. *@
+                else
+                {
+                    <div class="d-flex flex-column gap-3">
+                        <div class="alert alert-success p-2 mb-0 d-flex align-items-center justify-content-between" role="alert">
+                            <div>
+                                <span class="oi oi-check me-2" aria-hidden="true"></span>
+                                <strong>Map Uploaded Successfully!</strong>
+                            </div>
+                            <button type="button" class="btn btn-sm btn-outline-danger" @onclick="ClearPhoto">Remove / Change</button>
+                        </div>
+
+                        <img src="@newMap.Image" alt="Map Preview" class="img-fluid rounded border border-dark" style="max-height: 250px; object-fit: contain;" />
+                    </div>
+                }
+
+                <div class="row justify-content-center mb-3">
+                    <div class="col">
+                        <label>Map Scale:</label>
+                        <InputText @bind-Value=newMap.GridScale class="form-control" placeholder="Space per grid unit (e.g., 5ft)" />
+                    </div>
+
+                    <div class="col d-flex align-items-center gap-2">
+                        <label class="mb-0">Safe to show players?</label>
+                        <InputCheckbox @bind-Value="newMap.IsPlayerSafe" class="form-check-input mt-0" />
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label>Map Description:</label>
+                    <InputTextArea @bind-Value=newMap.Description class="form-control" />
+                </div>
+
+            </div>
+        </div>
+
+        <div class="row mb-3">
+            <div class="col mb-3">
+                <label>Town Description:</label>
+                <InputTextArea @bind-Value=newTown.Description class="form-control" />
+            </div>
+        </div>
+
+        <div class="row mb-3">
+            <div class="col mb-3">
+                <label>Private DM Notes:</label>
+                <InputTextArea @bind-Value=newTown.DMNotes class="form-control" placeholder="Notes about the town that should be hidden from players." />
+            </div>
+        </div>
+
+    </div>
+
+    <div class="mt-auto pt-3 pb-3 border-top d-flex justify-content-between align-items-center">
+        <button type="button" class="btn btn-danger" @onclick="CancelCreation">Cancel</button>
+        <button type="button" class="btn btn-success" @onclick="SaveTown">Save Town</button>
+    </div>
+
+</EditForm>
+
+@code {
+
+    private Town newTown = new Town();
+    private Map newMap = new Map { Type = MapType.Town };
+    private EditContext townContext;
+
+    protected override void OnInitialized()
+    {
+        townContext = new EditContext(newTown);
+    }
+
+    private async Task PickImageNative()
+    {
+        try
+        {
+            // Trigger the Native Windows/Mac File Picker
+            var result = await Microsoft.Maui.Storage.FilePicker.Default.PickAsync(new PickOptions
+            {
+                PickerTitle = "Select a Map Image",
+                FileTypes = FilePickerFileType.Images
+            });
+
+            // If they actually picked a file (and didn't hit cancel)
+            if (result != null)
+            {
+                // Read the file directly from the operating system
+                using var stream = await result.OpenReadAsync();
+                using var memoryStream = new MemoryStream();
+                await stream.CopyToAsync(memoryStream);
+
+                // Convert the raw bytes into our Base64 string for the database
+                var buffer = memoryStream.ToArray();
+                var base64 = Convert.ToBase64String(buffer);
+
+                // Save it to the model (using the native ContentType like image/png)
+                newMap.Image = $"data:{result.ContentType};base64,{base64}";
+            }
+        }
+        catch (Exception ex)
+        {
+            // Failsafes silently if the user closes the window without picking anything
+            Console.WriteLine($"Image picking failed: {ex.Message}");
+        }
+    }
+
+    private void ClearPhoto()
+    {
+        // Resets the string to empty, triggering Scenario 1 to show the upload button again
+        newMap.Image = string.Empty;
+    }
+
+
+    private async Task SaveTown()
+    {
+        if (townContext.Validate())
+        {
+            if (string.IsNullOrEmpty(newMap.Image))
+            {
+                newMap.Image = "/images/MapPlaceholder.png";                
+            }
+
+            if (string.IsNullOrWhiteSpace(newMap.Description)) 
+            {
+                newMap.Description = $"Map of {newTown.Name}"; 
+            }
+
+            newMap.Name = newTown.Name;
+            Db.Maps.Add(newMap);
+            await Db.SaveChangesAsync();
+            newTown.MapId = newMap.Id;
+
+            Db.Towns.Add(newTown);
+            await Db.SaveChangesAsync();
+            NavManager.NavigateTo($"/towns");
+
+        }
+    }
+
+    private void CancelCreation()
+    {
+        NavManager.NavigateTo($"/towns");
+    }
+
+}

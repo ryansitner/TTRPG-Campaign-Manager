@@ -1,0 +1,166 @@
+﻿@page "/items"
+@using TTRPGManager.Models
+@using Microsoft.EntityFrameworkCore
+@inject TTRPGManager.Data.CampaignDbContext Db
+
+@inject NavigationManager NavManager
+
+<div class="d-flex flex-column" style="height: calc(100vh - 40px);">
+	<div class="d-flex justify-content-between align-items-center mb-2">
+		<a href="/" class="btn btn-dark btn-icon me-2" aria-label="Back to Main Menu">
+			<img src="/images/BackIcon.png" alt="Back Icon" class="header-icon" />
+		</a>
+
+		<h1 class="text-capitalize">Item Directory</h1>
+
+		<a href="/" class="btn btn-dark btn-icon me-2" aria-label="Back to Main Menu">
+			<img src="/images/HomeIcon.png" alt="Home Icon" class="header-icon" />
+		</a>
+	</div>
+
+	<div class="flex-grow-1" style="overflow-y: auto; overflow-x: hidden;">
+		
+		<!-- Search Feature -->
+		<div class="row mb-3 mt-2 pb-3 border-bottom border-secondary">
+			<div class="col-6">
+				<input type="text" class="form-control" @bind="SearchTerm" @bind:event="oninput" @bind:after="ApplyFilters" placeholder="Search items..." />
+			</div>
+
+			<div class="col-3">
+				<select class="form-select" name="itemType" @bind="FilterType" @bind:after="ApplyFilters">
+					<option value="">All Types</option>
+					@foreach (ItemType type in Enum.GetValues(typeof(ItemType)))
+					{
+						<option value="@type">@FormatEnumName(type.ToString())</option>
+					}
+				</select>
+			</div>
+
+			<div class="col-3">
+				<select class="form-select" name="rarityType" @bind=FilterRarity @bind:after="ApplyFilters">
+					<option value="">All Rarities</option>
+					@foreach (ItemRarity rarity in Enum.GetValues(typeof(ItemRarity)))
+					{
+						<option value="@rarity">@FormatEnumName(rarity.ToString())</option>
+					}
+				</select>
+			</div>
+		</div>
+
+		<!-- Card Deck -->
+		<div class="row">
+
+			@if (DisplayList.Count == 0)
+			{
+				<span class="text-center text-muted mt-5">No items found...</span>
+			}
+
+			else
+			{
+				@foreach (var item in DisplayList)
+				{
+					<div class="col-md-4 col-lg-4 col-xl-3 mb-3">
+						<div class="card bg-dark text-white p-2 d-flex flex-row align-items-center h-100" @onclick="() => GoToItemDetails(item.Id)">
+					
+						<img src="@item.Image" style="border: 2px solid @GetRarityColor(item.Rarity); width: 50px; height: 50px; object-fit: contain;" />
+					
+						<div class="ms-3 d-flex flex-column justify-content-center">
+							<h6 class="card-title ms-0">@item.Name</h6>
+							<small class="text-muted">@item.Type.ToString()</small>
+						</div>
+
+					</div>
+				</div>
+				}
+			}
+
+		</div>
+
+	</div>
+
+	<div class="mt-auto pt-3 pb-0 border-top d-flex justify-content-end">
+		<button class="btn character-add-btn" @onclick="GoToCreatePage">Add New Item</button>
+	</div>
+
+</div>
+
+
+@code {
+	private List<Item> MasterList = new List<Item>();
+	private List<Item> DisplayList = new List<Item>();
+
+	private string SearchTerm = string.Empty;
+
+	private ItemType? FilterType = null;
+	private ItemRarity? FilterRarity = null;
+
+	protected override async Task OnInitializedAsync()
+	{
+		MasterList = await Db.Items
+			.AsNoTracking()
+			.OrderBy(i => i.Name)
+			.ToListAsync();
+
+		DisplayList = MasterList;
+	}
+
+	private string FormatEnumName(string myString)
+	{
+		return System.Text.RegularExpressions.Regex.Replace(myString, "([A-Z])", " $1").Trim();
+	}
+
+	private void ApplyFilters ()
+	{
+		var TempList = MasterList;
+
+		if(!string.IsNullOrWhiteSpace(SearchTerm))
+		{
+			TempList = TempList.Where(i => i.Name.ToLower().Contains(SearchTerm.ToLower())).ToList();
+		}
+
+		if(FilterType != null)
+		{
+			TempList = TempList.Where(i => i.Type == FilterType).ToList();
+		}
+
+		if(FilterRarity != null)
+		{
+			TempList = TempList.Where(i => i.Rarity == FilterRarity).ToList();
+		}
+
+		DisplayList = TempList;
+
+	}
+
+	private string GetRarityColor(ItemRarity rarity)
+	{
+		switch(rarity)
+		{
+			case ItemRarity.Common:
+				return "#79828f";
+			case ItemRarity.Uncommon:
+				return "#1f7a3f";
+			case ItemRarity.Rare:
+				return "#286dad";
+			case ItemRarity.Epic:
+				return "#681499";
+			case ItemRarity.Legendary:
+				return "#ad830e";
+			case ItemRarity.Artifact:
+				return "#8f0404";
+			default:
+				return "transparent";
+		}
+	}
+
+	// Handles routing when clicking on a specific map card
+	private void GoToItemDetails(int itemID)
+	{
+		NavManager.NavigateTo($"/items/view/{itemID}");
+	}
+
+	private void GoToCreatePage()
+	{
+		NavManager.NavigateTo("/items/create");
+	}
+}

@@ -1,0 +1,64 @@
+﻿@page "/maps"
+@using TTRPGManager.Models
+@inject TTRPGManager.Data.CampaignDbContext Db
+
+@inject NavigationManager NavManager
+
+<style>
+    .map-grid-override {
+        grid-template-columns: 1fr 1fr;
+        max-width: 900px;
+        margin: 0 auto;
+    }
+
+    .map-btn-override {
+        min-height: 150px;
+        min-width: 0;
+        font-size: clamp(1.25rem, 3.5vw, 2rem);
+    }
+
+    /* Shrink the height and gaps on small screens */
+    @@media (max-width: 900px) {
+        .map-btn-override {
+            min-height: 100px;
+        }
+
+        .map-grid-override {
+            gap: 10px;
+        }
+    }
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <a href="/" class="btn btn-dark btn-icon me-2" aria-label="Back to Main Menu">
+        <img src="/images/BackIcon.png" alt="Home Icon" class="header-icon" />
+    </a>
+    <h1>Map Hub</h1>
+    <a href="/" class="btn btn-dark btn-icon me-2" aria-label="Back to Main Menu">
+        <img src="/images/HomeIcon.png" alt="Home Icon" class="header-icon" />
+    </a>
+</div>
+
+<div class="dashboard-grid map-grid-override">
+
+    <a href="/maps/world" class="dashboard-btn map-btn-override" style="background-image: linear-gradient(to right, rgba(43, 43, 43, 0) 35%, rgba(43, 43, 43, 1) 90%), url('/images/WorldMapIcon.png'); background-position: -10% 0%; background-size: 60%; background-repeat: no-repeat; padding-right: 25%;">
+        World
+    </a>
+
+    <a href="/maps/town" class="dashboard-btn map-btn-override" style="background-image: linear-gradient(to right, rgba(43, 43, 43, 0) 30%, rgba(43, 43, 43, 1) 95%), url('/images/TownMapIcon.png'); background-position: -5% 75%; background-size: 65%; background-repeat: no-repeat;">
+        Town
+    </a>
+
+    <a href="/maps/dungeon" class="dashboard-btn map-btn-override" style="background-image: linear-gradient(to right, rgba(43, 43, 43, 0) 30%, rgba(43, 43, 43, 1) 95%), url('/images/DungeonMapIcon.png'); background-position: -10% 65%; background-size: 55%; background-repeat: no-repeat;">
+        Dungeon
+    </a>
+
+    <a href="/maps/battle" class="dashboard-btn map-btn-override" style="background-image: linear-gradient(to right, rgba(43, 43, 43, 0) 50%, rgba(43, 43, 43, 1) 95%), url('/images/BattleMapIcon.png'); background-position: -5% 75%; background-size: 55%; background-repeat: no-repeat;">
+        Battle
+    </a>
+
+</div>
+
+@code {
+
+}

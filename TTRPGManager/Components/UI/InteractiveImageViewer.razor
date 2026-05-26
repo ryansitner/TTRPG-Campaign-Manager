@@ -1,0 +1,101 @@
+﻿
+<div class="rounded border border-secondary d-flex justify-content-center">
+	<img class="img-fluid" style="max-height: 60vh; object-fit: contain; cursor: pointer;" src="@ImageSource"
+		 @onclick="ToggleFullscreen" />
+</div>
+
+@if (isFullscreen)
+{
+	<div class="position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center"
+		 style="background-color: rgba(0,0,0,0.9); z-index: 1050; cursor: default;"
+		 @onclick="ToggleFullscreen" @onwheel="HandleWheel" @onmousemove="HandleMouseMove" @onmouseup="HandleMouseUp">
+
+		<img src="@ImageSource" style="@ImageStyle" @onmousedown="HandleMouseDown" @onmousedown:stopPropagation="true" />
+	</div>
+}
+
+@code {
+
+	[Parameter]
+	public string ImageSource { get; set; } = string.Empty;
+
+	private string ImageStyle
+	{
+		get
+		{
+			return "object-fit: contain; " +
+				   "transform-origin: center; " + // Fixed to the middle
+				   $"transform: translate({offsetX}px, {offsetY}px) scale({zoomScale}); " +
+				   $"cursor: {(isDragging ? "move" : "pointer")};";
+		}
+	}
+
+	private bool isFullscreen = false;
+	private bool isDragging = false;
+
+	private double zoomScale = 1.0;
+	private double offsetX = 0;
+	private double offsetY = 0;
+	private double startX;
+	private double startY;
+
+
+	private void ToggleFullscreen()
+	{
+		isFullscreen = !isFullscreen;
+
+		// Reset zoom and pan when exiting fullscreen
+		if (!isFullscreen)
+		{
+			zoomScale = 1.0;
+			offsetX = 0;
+			offsetY = 0;
+		}
+	}
+
+	private void HandleWheel(WheelEventArgs e)
+	{
+		if (e.DeltaY < 0)
+		{
+			zoomScale += 0.1;
+		}
+		else
+		{
+			zoomScale -= 0.1;
+		}
+
+		zoomScale = Math.Clamp(zoomScale, 0.5, 5.0);
+	}
+
+	private void HandleMouseDown(MouseEventArgs e)
+	{
+		isDragging = true;
+		startX = e.ClientX;
+		startY = e.ClientY;
+
+		StateHasChanged();
+	}
+
+	private void HandleMouseUp(MouseEventArgs e)
+	{
+		isDragging = false;
+		StateHasChanged();
+	}
+
+	private void HandleMouseMove(MouseEventArgs e)
+	{
+		if (isDragging)
+		{
+			// Update offsets based on mouse movement
+			offsetX += e.ClientX - startX;
+			offsetY += e.ClientY - startY;
+
+			// Update starting point for the next movement
+			startX = e.ClientX;
+			startY = e.ClientY;
+
+			StateHasChanged();
+		}
+	}
+
+}
